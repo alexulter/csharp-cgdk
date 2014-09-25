@@ -22,7 +22,6 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			
 			//opponentMinions = AllBadGuys();					
 			opponent = world.GetOpponentPlayer();
-			//if (opponent.IsJustMissedGoal||opponent.IsJustScoredGoal) return;
 			AimGoalPoint[0] = opponent.NetFront + world.Width/6 + self.Radius;
 			if (self.Y < game.GoalNetTop + game.GoalNetHeight/4) AimGoalPoint[1] = game.GoalNetTop - self.Radius;// + game.GoalNetHeight/2;
 			else if (self.Y < game.GoalNetTop + game.GoalNetHeight*3/4) {}
@@ -32,23 +31,11 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			if (flag){}
 			else if (self.TeammateIndex == 0)
 			{
-				if (isGotPuck()) AimAndStrike();
-				else 
-				{
-				HockState = HockStateType.none;
-					if (world.Puck.X <= world.Width/2)gotoPuck();
-					else move.Turn = self.GetAngleTo(world.Puck);
-				}
+				PlayAttack();
 			}
 			else if (self.TeammateIndex == 1)
 			{
-				if (isGotPuck()) AimAndStrike();
-				else 
-				{
-					HockState = HockStateType.none;
-					if (world.Puck.X > world.Width/2)gotoPuck();
-					else move.Turn = self.GetAngleTo(world.Puck);
-				}
+				PlayDefence();
 			}
 //			double x = world.Puck.X;
 //			double y = world.Puck.Y;
@@ -58,6 +45,50 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			args.Clear();
         }
         
+        private void PlayDefence()
+        {
+			double myNetDefPointX = 5*world.GetMyPlayer().NetFront - 2*world.GetMyPlayer().NetRight - 2*world.GetMyPlayer().NetLeft;
+			double myNetDefPointY = game.GoalNetTop + game.GoalNetHeight/2; 
+			if (isGotPuck()) AimAndStrike();
+			else 
+			{
+				HockState = HockStateType.none;
+				if (world.Puck.X > world.Width/2)gotoPuck();
+//				else if (Math.Abs(self.GetAngleTo(world.Puck) - 
+//					self.GetAngleTo(world.GetMyPlayer().NetFront, game.GoalNetTop + game.GoalNetHeight/2))
+//					<= 3*Math.PI/4)
+//					{
+//						move.Turn = self.GetAngleTo(world.GetMyPlayer().NetFront, 
+//							game.GoalNetTop + game.GoalNetHeight/2) - Math.PI/2;
+//						move.SpeedUp = 0.1D;
+//					}
+//				         Math.Abs(self.GetAngleTo(world.Puck) - 
+//				         self.GetAngleTo(world.GetMyPlayer().NetFront, game.GoalNetTop + game.GoalNetHeight/2))
+//				         > 5*Math.PI/4)
+//					{
+//						move.Turn
+//					}
+				else if (self.GetDistanceTo(myNetDefPointX, myNetDefPointY)> 4*self.Radius)
+					{
+					move.Turn = self.GetAngleTo(myNetDefPointX, myNetDefPointY);
+					if (self.GetAngleTo(myNetDefPointX, myNetDefPointY) < 0.2D) move.SpeedUp = 1D;
+					}
+				else
+					move.Turn = self.GetAngleTo(world.Puck);
+			}
+        }
+		
+		private void PlayAttack()
+		{
+			if (isGotPuck()) AimAndStrike();
+			else 
+			{
+				HockState = HockStateType.none;
+				if (world.Puck.X <= world.Width/2)gotoPuck();
+				else move.Turn = self.GetAngleTo(world.Puck);
+			}
+		}        
+		
         private bool StrikeOpps()
         {
 			Hockeyist[] allguys = world.Hockeyists;
@@ -69,12 +100,11 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 				badguys[j] = allguys[i];
 				j++;
 			}
-			Console.WriteLine("j = "+j.ToString());
 			if (j < 2) return false;
 			if (self.GetDistanceTo(badguys[0]) < 2*self.Radius &&
-			    Math.Abs (self.GetAngleTo(badguys[0])) < Math.PI/4 || 
+			    Math.Abs (self.GetAngleTo(badguys[0])) < Math.PI/3 || 
 			    self.GetDistanceTo(badguys[1]) < 2*self.Radius &&
-			    Math.Abs (self.GetAngleTo(badguys[1])) < Math.PI/4)
+			    Math.Abs (self.GetAngleTo(badguys[1])) < Math.PI/3)
 			{
 			move.Action = ActionType.Strike;
 			return true;
