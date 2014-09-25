@@ -15,17 +15,32 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 		//private Hockeyist[] opponentMinions;
 		private Player opponent;
 		//private double radius1 = 1D;
+		private bool amIRight;
 						
         public void Move(Hockeyist _self, World _world, Game _game, Move _move) {
 			args.Add(_self); args.Add(_world); args.Add(_game); args.Add(_move);
 			Init();
-			
 			//opponentMinions = AllBadGuys();					
+			
+			//Инициализация позиций для удара
 			opponent = world.GetOpponentPlayer();
-			AimGoalPoint[0] = opponent.NetFront + world.Width/6 + self.Radius;
+			if (world.GetMyPlayer().NetFront > world.Width/2)
+				{
+				amIRight = true;
+				AimGoalPoint[0] = opponent.NetFront + world.Width/6 + self.Radius;
+				}
+			else 
+			{
+			amIRight = false;
+			AimGoalPoint[0] = opponent.NetFront - world.Width/6 - self.Radius;
+			}
+
 			if (self.Y < game.GoalNetTop + game.GoalNetHeight/4) AimGoalPoint[1] = game.GoalNetTop - self.Radius;// + game.GoalNetHeight/2;
 			else if (self.Y < game.GoalNetTop + game.GoalNetHeight*3/4) {}
 			else AimGoalPoint[1] = game.GoalNetTop + game.GoalNetHeight + self.Radius;// + game.GoalNetHeight/2;
+
+				
+
 			
 			bool flag = StrikeOpps();
 			if (flag){}
@@ -53,7 +68,7 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			else 
 			{
 				HockState = HockStateType.none;
-				if (world.Puck.X > world.Width/2)gotoPuck();
+				if ((world.Puck.X > world.Width/2 && amIRight) || (!amIRight && world.Puck.X < world.Width/2))gotoPuck();
 //				else if (Math.Abs(self.GetAngleTo(world.Puck) - 
 //					self.GetAngleTo(world.GetMyPlayer().NetFront, game.GoalNetTop + game.GoalNetHeight/2))
 //					<= 3*Math.PI/4)
@@ -84,7 +99,7 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			else 
 			{
 				HockState = HockStateType.none;
-				if (world.Puck.X <= world.Width/2)gotoPuck();
+				if ((world.Puck.X <= world.Width/2 && amIRight) || (!amIRight && world.Puck.X >= world.Width/2))gotoPuck();
 				else move.Turn = self.GetAngleTo(world.Puck);
 			}
 		}        
@@ -190,17 +205,7 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 				}
 			else move.Turn = self.GetAngleTo(world.Puck);
         }
-        private void def2()
-        {
-			if (world.Puck.X > world.Width/2) gotoPuck();
-			else move.Turn = self.GetAngleTo(world.Puck);
-			if (self.Id == world.Puck.OwnerHockeyistId) 
-			{	
-				//Tactic_RunAway1();
-				strikePuckTest();
-			}
-        }
-        
+       
 		private void gotoPuck()
 		{	
 			aimPuck();
