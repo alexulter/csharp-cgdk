@@ -10,17 +10,19 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 		private Game game;
 		private Move move;
 		private double[] AimGoalPoint = new double[2];
-		private enum HockStateType {none, goingToAim, aiming};
+		private enum HockStateType {none, goingToAim, aiming, falsestrike};
 		private HockStateType HockState = HockStateType.none;
-		//private Hockeyist[] opponentMinions;
+		private Hockeyist[] opponentMinions;
 		private Player opponent;
 		//private double radius1 = 1D;
 		private bool amIRight;
-						
+		double myNetDefPointX;
+		double myNetDefPointY;
+								
         public void Move(Hockeyist _self, World _world, Game _game, Move _move) {
 			args.Add(_self); args.Add(_world); args.Add(_game); args.Add(_move);
 			Init();
-			//opponentMinions = AllBadGuys();					
+			opponentMinions = AllBadGuys();					
 			
 			//Инициализация позиций для удара
 			opponent = world.GetOpponentPlayer();
@@ -39,8 +41,12 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			else if (self.Y < game.GoalNetTop + game.GoalNetHeight*3/4) {}
 			else AimGoalPoint[1] = game.GoalNetTop + game.GoalNetHeight + self.Radius;// + game.GoalNetHeight/2;
 
+			
+			//позиции для защиты
+			myNetDefPointX = 5*world.GetMyPlayer().NetFront - 2*world.GetMyPlayer().NetRight - 2*world.GetMyPlayer().NetLeft;
+			myNetDefPointY = game.GoalNetTop + game.GoalNetHeight/2; 
 				
-
+			
 			
 			bool flag = StrikeOpps();
 			if (flag){}
@@ -62,13 +68,23 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
         
         private void PlayDefence()
         {
-			double myNetDefPointX = 5*world.GetMyPlayer().NetFront - 2*world.GetMyPlayer().NetRight - 2*world.GetMyPlayer().NetLeft;
-			double myNetDefPointY = game.GoalNetTop + game.GoalNetHeight/2; 
+        
+        ///СДЕЛАТЬ: Когда шайба на своей половине поля и в руках у протинвика, 
+			/// то надо стоять перед вратарём и отбивать, когда подлетит
+        ///
+			
+			
+			
 			if (isGotPuck()) AimAndStrike();
-			else 
+			else
 			{
 				HockState = HockStateType.none;
-				if ((world.Puck.X > world.Width/2 && amIRight) || (!amIRight && world.Puck.X < world.Width/2))gotoPuck();
+				if (world.Puck.OwnerPlayerId == world.GetOpponentPlayer().Id && !isOpponentClose()
+				 //|| isOpponentOnYourSide()
+				 ) goToDefPosition();
+				else if ((world.Puck.X > world.Width/2 && amIRight) || 
+					(!amIRight && world.Puck.X < world.Width/2))
+					gotoPuck();
 //				else if (Math.Abs(self.GetAngleTo(world.Puck) - 
 //					self.GetAngleTo(world.GetMyPlayer().NetFront, game.GoalNetTop + game.GoalNetHeight/2))
 //					<= 3*Math.PI/4)
@@ -83,13 +99,54 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 //					{
 //						move.Turn
 //					}
-				else if (self.GetDistanceTo(myNetDefPointX, myNetDefPointY)> 4*self.Radius)
-					{
-					move.Turn = self.GetAngleTo(myNetDefPointX, myNetDefPointY);
-					if (self.GetAngleTo(myNetDefPointX, myNetDefPointY) < 0.2D) move.SpeedUp = 1D;
-					}
-				else
-					move.Turn = self.GetAngleTo(world.Puck);
+				else goToDefPosition();
+				//strikePuckIfFlyingClose();
+			}
+        }
+        
+        private bool isOpponentClose()
+        {
+			for (int i = 0; i < 2; i++)
+				if (self.GetDistanceTo(opponentMinions[i]) < 4*self.Radius)
+					return true;
+			return false;
+        }
+        private bool isOpponentsInfront()
+        {
+			if (Math.Abs (self.GetAngleTo(opponentMinions[0])) < Math.PI/4 && 
+				Math.Abs (self.GetAngleTo(opponentMinions[1])) < Math.PI/4)
+					return true;
+			return false;
+        }
+        private void goToDefPosition()
+        {
+			if (self.GetDistanceTo(myNetDefPointX, myNetDefPointY)> 2*self.Radius)
+			{
+				move.Turn = self.GetAngleTo(myNetDefPointX, myNetDefPointY);
+				if (self.GetAngleTo(myNetDefPointX, myNetDefPointY) < 0.2D) move.SpeedUp = 1D;
+				else setSpeed(0);
+			}
+			else
+				{
+				move.Turn = self.GetAngleTo(world.Puck);
+				if (world.Puck.OwnerPlayerId != world.GetMyPlayer().Id) move.Action = ActionType.TakePuck;
+				}
+        }
+        
+        private bool isOpponentOnYourSide()
+        {
+        	for (int i = 0; i < 2; i++)
+        		if (amIRight && opponentMinions[i].X > world.Width/2 || !amIRight && opponentMinions[i].X < world.Width/2)
+        			return true;
+        	return false;
+        }
+        
+        private void strikePuckIfFlyingClose()
+        {
+			if (!isGotPuck() && self.GetDistanceTo(world.Puck) <= 2*self.Radius)
+			{
+				move.Turn = self.GetAngleTo(world.Puck);
+				if (self.GetAngleTo(world.Puck) < 0.2D) move.Action = ActionType.Strike;
 			}
         }
 		
@@ -99,7 +156,8 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			else 
 			{
 				HockState = HockStateType.none;
-				if ((world.Puck.X <= world.Width/2 && amIRight) || (!amIRight && world.Puck.X >= world.Width/2))gotoPuck();
+				if (world.Puck.OwnerPlayerId == world.GetOpponentPlayer().Id) KickOpp();
+				else if ((world.Puck.X <= world.Width/2 && amIRight) || (!amIRight && world.Puck.X >= world.Width/2))gotoPuck();
 				else move.Turn = self.GetAngleTo(world.Puck);
 			}
 		}        
@@ -124,8 +182,34 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			move.Action = ActionType.Strike;
 			return true;
 			}
+//			if (Math.Abs (self.GetAngleTo(badguys[0])) < Math.PI/4 || Math.Abs (self.GetAngleTo(badguys[1])) < Math.PI/4)
+//			{	
+//				double angle;
+//				if (self.Y < game.GoalNetTop + game.GoalNetHeight/2)
+//					angle  = self.GetAngleTo(world.Width/2, game.GoalNetTop + game.GoalNetHeight/2 - world.Height/2);
+//				else 
+//					angle  = self.GetAngleTo(world.Width/2, game.GoalNetTop + game.GoalNetHeight/2 + world.Height/2);
+//				move.Turn = angle;
+//				if (angle < 0.2D) move.Action = ActionType.Strike;
+//			}
 			return false;
         }
+        
+		private void KickOpp()
+		{
+				for (int i = 0; i < 2; i++)
+				if (self.GetDistanceTo(opponentMinions[i]) <= 4*self.Radius)
+				{
+					move.Turn = self.GetAngleTo(opponentMinions[i]);
+					//move.Action = ActionType.Swing;
+					if (self.GetAngleTo(opponentMinions[i]) < 0.2D)
+					{
+						move.SpeedUp = 1D;
+					 	if (self.GetDistanceTo(opponentMinions[i]) <= 2*self.Radius) 
+							move.Action = ActionType.Strike;
+					}
+				}
+		}
         
         private double speedAbs()
         {
@@ -258,7 +342,7 @@ namespace Com.CodeGame.CodeHockey2014.DevKit.CSharpCgdk {
 			Hockeyist[] badguys = new Hockeyist[6];
 			int j = 0;
 			for (int i = 0; i < allguys.Length; i++)
-				if (allguys[i].Type == HockeyistType.Versatile && !allguys[i].IsTeammate) 
+				if (allguys[i].Type != HockeyistType.Goalie && !allguys[i].IsTeammate) 
 				{
 					badguys[j] = allguys[i];
 					j++;
