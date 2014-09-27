@@ -4,3 +4,4 @@
 /csharp-cgdk.suo
 /csharp-cgdk.csproj.user
 bin/
+*.userprefs
